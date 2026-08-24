@@ -1,0 +1,13 @@
+{
+  "id": "com.fcannizzaro.zoraxy-cloudflare-tunnel",
+  "name": "Cloudflare Tunnel",
+  "author": "Francesco Saverio Cannizzaro",
+  "author_contact": "https://github.com/fcannizzaro",
+  "description": "Zoraxy plugin to automatically create and expose a hostname via Cloudflare Tunnel",
+  "url": "https://github.com/fcannizzaro/zoraxy-cloudflare-tunnel",
+  "type": 1,
+  "version_major": 1,
+  "version_minor": 0,
+  "version_patch": 4,
+  "ui_path": "/"
+}

@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+  build-binaries:
+    name: Build and publish binaries
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for target in \
+            linux/amd64 \
+            linux/arm64 \
+            linux/arm \
+            darwin/amd64 \
+            darwin/arm64 \
+            windows/amd64 \
+            windows/arm64
+          do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            output="cloudflare-tunnel_${goos}_${goarch}"
+
+            if [ "$goos" = "windows" ]; then
+              output="${output}.exe"
+            fi
+
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+              go build -trimpath -ldflags="-s -w" -o "$output" .
+            echo "Built $output"
+          done
+
+          sha256sum cloudflare-tunnel_* > SHA256SUMS
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            cloudflare-tunnel_*
+            SHA256SUMS

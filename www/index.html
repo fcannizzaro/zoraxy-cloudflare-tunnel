@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="zoraxy.csrf.Token" content="{{.csrfToken}}" />
+    <title>Cloudflare Tunnel</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <script src="theme.js"></script>
+    <main>
+      <header>
+        <div>
+          <h1>Cloudflare Tunnel</h1>
+          <p>Publish Zoraxy virtual hosts through a remotely managed Cloudflare Tunnel.</p>
+        </div>
+        <div id="statusBadge" class="badge">Loading…</div>
+      </header>
+
+      <section class="card">
+        <h2>Cloudflare</h2>
+        <div class="grid two">
+          <label>Account ID<input id="accountID" autocomplete="off" /></label>
+          <label>Zone ID<input id="zoneID" autocomplete="off" /></label>
+        </div>
+        <label
+          >API Token<input
+            id="apiToken"
+            type="password"
+            autocomplete="new-password"
+            placeholder="Leave blank to keep the saved token"
+        /></label>
+        <p class="hint">
+          Token permissions: Account → Cloudflare Tunnel → Edit, and Zone → DNS → Edit.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Tunnel</h2>
+        <div class="grid two">
+          <label>Tunnel name<input id="tunnelName" value="zoraxy" /></label>
+          <label>cloudflared executable<input id="cloudflaredPath" value="cloudflared" /></label>
+        </div>
+        <label>Origin service<input id="originService" value="https://127.0.0.1:443" /></label>
+        <div class="checks">
+          <label
+            ><input id="matchSNI" type="checkbox" checked /> Match TLS SNI to incoming Host</label
+          >
+          <label><input id="noTLSVerify" type="checkbox" /> Disable origin TLS verification</label>
+          <label
+            ><input id="autoStart" type="checkbox" /> Auto-start tunnel when Zoraxy/plugin
+            starts</label
+          >
+        </div>
+        <div class="meta">Tunnel ID: <code id="tunnelID">not created</code></div>
+        <div class="cloudflared-status" aria-live="polite">
+          <span id="cloudflaredIndicator" class="status-dot"></span>
+          <span>cloudflared</span>
+          <code id="cloudflaredResolved">checking…</code>
+        </div>
+        <div id="cloudflaredAlert" class="dependency-alert" role="alert" hidden>
+          <div>
+            <strong>cloudflared is not available</strong>
+            <p>
+              Install it in the same host or container that runs Zoraxy, then enter its executable
+              path above.
+            </p>
+          </div>
+          <a
+            href="https://developers.cloudflare.com/tunnel/downloads/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Installation guide ↗</a
+          >
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row heading">
+          <div>
+            <h2>Public hostnames</h2>
+            <p class="hint">Each enabled hostname is routed to the same Zoraxy origin above.</p>
+          </div>
+          <button id="addRoute" class="secondary">Add hostname</button>
+        </div>
+        <div id="routes"></div>
+      </section>
+
+      <section class="card actions">
+        <button id="save">Save</button>
+        <button id="apply">Apply to Cloudflare</button>
+        <button id="tunnelToggle" class="good" title="Requires cloudflared">Start tunnel</button>
+      </section>
+
+      <section id="message" class="message" aria-live="polite" hidden>
+        <span class="message-icon" aria-hidden="true"></span>
+        <div class="message-content">
+          <strong id="messageTitle"></strong>
+          <p id="messageText"></p>
+          <pre id="messageDetails" hidden></pre>
+        </div>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
