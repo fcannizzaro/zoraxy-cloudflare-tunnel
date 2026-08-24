@@ -38,6 +38,8 @@ Browser ──▶ Cloudflare edge ──▶ Cloudflare Tunnel
 - Create or reuse a remotely-managed Cloudflare Tunnel.
 - Configure Cloudflare Tunnel ingress rules.
 - Upsert proxied CNAME records pointing to `<tunnel-id>.cfargotunnel.com`.
+- Suggest public hostnames from enabled Zoraxy HTTP proxy rules and aliases.
+- Optionally remove a hostname's Cloudflare CNAME when removing it from the plugin.
 - Start and stop `cloudflared` as a child process using the `TUNNEL_TOKEN` environment variable.
 - Persistent configuration with file mode `0600`.
 - Embedded UI, with live files from `./www` when Zoraxy reports a development build.
@@ -131,8 +133,7 @@ The API token is returned to the UI only as a `token_configured` boolean and is 
 ## Current limitations
 
 - One Cloudflare account, zone, and tunnel per plugin instance.
-- Removing a hostname from the plugin removes it from tunnel ingress, but does not delete its existing Cloudflare DNS record. This deliberately avoids destructive DNS changes.
-- The plugin does not currently import Zoraxy proxy rules automatically.
+- Hostnames are suggested from Zoraxy HTTP rules but are only added when selected by the user.
 - The plugin detects `cloudflared` but does not install or update it.
 
 This project is an independent community plugin and is not an official Cloudflare or Zoraxy product.

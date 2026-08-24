@@ -85,6 +85,7 @@
           <button id="addRoute" class="secondary">Add hostname</button>
         </div>
         <div id="routes"></div>
+        <p id="pendingDNSDeletes" class="pending-deletions" role="status" hidden></p>
       </section>
 
       <section class="card actions">
@@ -101,6 +102,22 @@
           <pre id="messageDetails" hidden></pre>
         </div>
       </section>
+
+      <dialog id="removeHostnameDialog" class="confirm-dialog" aria-labelledby="removeDialogTitle">
+        <div class="confirm-dialog-icon" aria-hidden="true">DNS</div>
+        <div>
+          <h2 id="removeDialogTitle">Remove Cloudflare CNAME too?</h2>
+          <p>
+            You are removing <strong id="removeDialogHostname"></strong> from the tunnel. Choose
+            whether its Cloudflare CNAME should also be deleted on the next Apply.
+          </p>
+        </div>
+        <div class="confirm-dialog-actions">
+          <button id="cancelRemoveHostname" type="button" class="secondary">Cancel</button>
+          <button id="keepCNAME" type="button">Keep CNAME</button>
+          <button id="removeCNAME" type="button" class="delete-confirm">Remove CNAME</button>
+        </div>
+      </dialog>
     </main>
     <script src="app.js"></script>
   </body>

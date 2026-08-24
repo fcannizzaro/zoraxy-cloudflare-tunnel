@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,8 +34,20 @@ var webFS embed.FS
 var hostnameRE = regexp.MustCompile(`^(\*\.)?([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$`)
 
 type App struct {
-	store *cfgpkg.Store
-	proc  *tunnelproc.Manager
+	store        *cfgpkg.Store
+	proc         *tunnelproc.Manager
+	zoraxyPort   int
+	zoraxyAPIKey string
+}
+
+type applyRequest struct {
+	DeleteDNS []string `json:"delete_dns"`
+}
+
+type zoraxyProxyRule struct {
+	RootOrMatchingDomain string   `json:"RootOrMatchingDomain"`
+	MatchingDomainAlias  []string `json:"MatchingDomainAlias"`
+	Disabled             bool     `json:"Disabled"`
 }
 
 func main() {
@@ -47,8 +61,15 @@ func main() {
 		Type:          plugin.PluginType_Utilities,
 		VersionMajor:  1,
 		VersionMinor:  0,
-		VersionPatch:  4,
+		VersionPatch:  5,
 		UIPath:        uiPath,
+		PermittedAPIEndpoints: []plugin.PermittedAPIEndpoint{
+			{
+				Method:   http.MethodGet,
+				Endpoint: "/plugin/api/proxy/list",
+				Reason:   "Suggest hostnames from configured Zoraxy HTTP proxy rules",
+			},
+		},
 	})
 	if err != nil {
 		panic(err)
@@ -58,7 +79,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	app := &App{store: store, proc: &tunnelproc.Manager{}}
+	app := &App{
+		store:        store,
+		proc:         &tunnelproc.Manager{},
+		zoraxyPort:   runtimeCfg.ZoraxyPort,
+		zoraxyAPIKey: runtimeCfg.APIKey,
+	}
 
 	mux := http.NewServeMux()
 	router := plugin.NewPluginEmbedUIRouter(&webFS, webRoot, uiPath)
@@ -71,6 +97,7 @@ func main() {
 
 	mux.HandleFunc("/api/config", app.handleConfig)
 	mux.HandleFunc("/api/apply", app.handleApply)
+	mux.HandleFunc("/api/zoraxy/hostnames", app.handleZoraxyHostnames)
 	mux.HandleFunc("/api/tunnel/start", app.handleStart)
 	mux.HandleFunc("/api/tunnel/stop", app.handleStop)
 	mux.HandleFunc("/api/status", app.handleStatus)
@@ -186,9 +213,22 @@ func (a *App) handleApply(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(405)
 		return
 	}
+	var request applyRequest
+	if r.Body != nil {
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+		if err := decoder.Decode(&request); err != nil && !errors.Is(err, io.EOF) {
+			fail(w, http.StatusBadRequest, fmt.Errorf("invalid apply request: %w", err))
+			return
+		}
+	}
 	client, cfg, err := a.cfClient()
 	if err != nil {
 		fail(w, 400, err)
+		return
+	}
+	deleteDNS, err := normalizeDNSDeletions(request.DeleteDNS)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
@@ -221,6 +261,24 @@ func (a *App) handleApply(w http.ResponseWriter, r *http.Request) {
 		fail(w, 502, err)
 		return
 	}
+	active := make(map[string]bool, len(applied))
+	for _, hostname := range applied {
+		active[hostname] = true
+	}
+	deletedDNS := []string{}
+	for _, hostname := range deleteDNS {
+		if active[hostname] {
+			continue
+		}
+		removed, err := client.DeleteCNAME(ctx, hostname)
+		if err != nil {
+			fail(w, 502, fmt.Errorf("delete DNS %s: %w", hostname, err))
+			return
+		}
+		if removed {
+			deletedDNS = append(deletedDNS, hostname)
+		}
+	}
 	for _, hostname := range applied {
 		if err := client.UpsertTunnelDNS(ctx, hostname, t.ID); err != nil {
 			fail(w, 502, fmt.Errorf("DNS %s: %w", hostname, err))
@@ -232,7 +290,7 @@ func (a *App) handleApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := map[string]any{"ok": true, "tunnel_id": t.ID, "tunnel_status": t.Status, "hostnames": applied}
+	result := map[string]any{"ok": true, "tunnel_id": t.ID, "tunnel_status": t.Status, "hostnames": applied, "deleted_dns": deletedDNS}
 	// When AutoStart is enabled, Apply also brings the connector online. The
 	// same setting is honored when the Zoraxy plugin process starts/restarts.
 	if cfg.AutoStart && !a.proc.Status().Running {
@@ -247,6 +305,96 @@ func (a *App) handleApply(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, 200, result)
+}
+
+func normalizeDNSDeletions(rawHostnames []string) ([]string, error) {
+	seen := map[string]bool{}
+	hostnames := make([]string, 0, len(rawHostnames))
+	for _, rawHostname := range rawHostnames {
+		hostname := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(rawHostname), "."))
+		if hostname == "" || seen[hostname] {
+			continue
+		}
+		if !hostnameRE.MatchString(hostname) {
+			return nil, fmt.Errorf("invalid hostname queued for DNS deletion: %q", rawHostname)
+		}
+		seen[hostname] = true
+		hostnames = append(hostnames, hostname)
+	}
+	return hostnames, nil
+}
+
+func (a *App) handleZoraxyHostnames(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if a.zoraxyPort <= 0 || strings.TrimSpace(a.zoraxyAPIKey) == "" {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":        false,
+			"error":     "Zoraxy did not provide plugin API access; hostname suggestions are unavailable",
+			"hostnames": []string{},
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+	endpoint := fmt.Sprintf("http://127.0.0.1:%d/plugin/api/proxy/list?type=host", a.zoraxyPort)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+a.zoraxyAPIKey)
+	req.Header.Set("Accept", "application/json")
+	resp, err := (&http.Client{Timeout: 8 * time.Second}).Do(req)
+	if err != nil {
+		fail(w, http.StatusBadGateway, fmt.Errorf("load Zoraxy HTTP rules: %w", err))
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		fail(w, http.StatusBadGateway, err)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		fail(w, http.StatusBadGateway, fmt.Errorf("Zoraxy HTTP-rule API returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
+		return
+	}
+	var rules []zoraxyProxyRule
+	if err := json.Unmarshal(body, &rules); err != nil {
+		fail(w, http.StatusBadGateway, fmt.Errorf("decode Zoraxy HTTP rules: %w", err))
+		return
+	}
+
+	hostnames := hostnamesFromZoraxyRules(rules)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "hostnames": hostnames})
+}
+
+func hostnamesFromZoraxyRules(rules []zoraxyProxyRule) []string {
+	seen := map[string]bool{}
+	hostnames := []string{}
+	add := func(raw string) {
+		hostname := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(raw), "."))
+		if hostname == "" || seen[hostname] || !hostnameRE.MatchString(hostname) {
+			return
+		}
+		seen[hostname] = true
+		hostnames = append(hostnames, hostname)
+	}
+	for _, rule := range rules {
+		if rule.Disabled {
+			continue
+		}
+		add(rule.RootOrMatchingDomain)
+		for _, alias := range rule.MatchingDomainAlias {
+			add(alias)
+		}
+	}
+	sort.Strings(hostnames)
+	return hostnames
 }
 
 func (a *App) startTunnel(ctx context.Context) error {

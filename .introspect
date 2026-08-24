@@ -8,6 +8,13 @@
   "type": 1,
   "version_major": 1,
   "version_minor": 0,
-  "version_patch": 4,
-  "ui_path": "/"
+  "version_patch": 5,
+  "ui_path": "/",
+  "permitted_api_endpoints": [
+    {
+      "method": "GET",
+      "endpoint": "/plugin/api/proxy/list",
+      "reason": "Suggest hostnames from configured Zoraxy HTTP proxy rules"
+    }
+  ]
 }

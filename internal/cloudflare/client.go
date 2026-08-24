@@ -15,10 +15,11 @@ import (
 const BaseURL = "https://api.cloudflare.com/client/v4"
 
 type Client struct {
-	Token     string
-	AccountID string
-	ZoneID    string
-	HTTP      *http.Client
+	Token      string
+	AccountID  string
+	ZoneID     string
+	HTTP       *http.Client
+	APIBaseURL string
 }
 
 type apiError struct {
@@ -53,7 +54,7 @@ type IngressRule struct {
 }
 
 func New(token, accountID, zoneID string) *Client {
-	return &Client{Token: strings.TrimSpace(token), AccountID: strings.TrimSpace(accountID), ZoneID: strings.TrimSpace(zoneID), HTTP: &http.Client{Timeout: 30 * time.Second}}
+	return &Client{Token: strings.TrimSpace(token), AccountID: strings.TrimSpace(accountID), ZoneID: strings.TrimSpace(zoneID), HTTP: &http.Client{Timeout: 30 * time.Second}, APIBaseURL: BaseURL}
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
@@ -65,7 +66,11 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 		}
 		reader = bytes.NewReader(b)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, BaseURL+path, reader)
+	baseURL := strings.TrimSuffix(c.APIBaseURL, "/")
+	if baseURL == "" {
+		baseURL = BaseURL
+	}
+	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, reader)
 	if err != nil {
 		return err
 	}
@@ -195,4 +200,20 @@ func (c *Client) UpsertTunnelDNS(ctx context.Context, hostname, tunnelID string)
 		return c.do(ctx, http.MethodPost, "/zones/"+url.PathEscape(c.ZoneID)+"/dns_records", desired, nil)
 	}
 	return c.do(ctx, http.MethodPut, "/zones/"+url.PathEscape(c.ZoneID)+"/dns_records/"+url.PathEscape(current.ID), desired, nil)
+}
+
+// DeleteCNAME removes the CNAME with the exact hostname. A missing record is a
+// successful no-op so a queued UI deletion remains safe to retry.
+func (c *Client) DeleteCNAME(ctx context.Context, hostname string) (bool, error) {
+	current, err := c.findDNS(ctx, hostname)
+	if err != nil {
+		return false, err
+	}
+	if current == nil {
+		return false, nil
+	}
+	if err := c.do(ctx, http.MethodDelete, "/zones/"+url.PathEscape(c.ZoneID)+"/dns_records/"+url.PathEscape(current.ID), nil, nil); err != nil {
+		return false, err
+	}
+	return true, nil
 }

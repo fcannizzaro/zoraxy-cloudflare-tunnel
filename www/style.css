@@ -191,7 +191,8 @@ label {
 
 input[type="text"],
 input[type="password"],
-input:not([type]) {
+input:not([type]),
+select {
   width: 100%;
   height: 44px;
   margin-top: 7px;
@@ -220,13 +221,15 @@ input::placeholder {
 
 input[type="text"]:hover,
 input[type="password"]:hover,
-input:not([type]):hover {
+input:not([type]):hover,
+select:hover {
   border-color: var(--text-muted);
 }
 
 input[type="text"]:focus,
 input[type="password"]:focus,
-input:not([type]):focus {
+input:not([type]):focus,
+select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
 }
@@ -395,6 +398,91 @@ button:disabled {
   margin-top: 16px;
   display: grid;
   gap: 12px;
+}
+
+.pending-deletions {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--cloudflare-orange);
+  background: color-mix(in srgb, var(--cloudflare-orange) 8%, var(--surface));
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.pending-deletions[hidden] {
+  display: none;
+}
+
+/* =========================================================
+   Destructive confirmation
+   ========================================================= */
+
+.confirm-dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
+}
+
+.confirm-dialog::backdrop {
+  background: rgb(0 0 0 / 52%);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-dialog[open] {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.confirm-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cloudflare-orange) 14%, var(--surface));
+  color: var(--cloudflare-orange);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.confirm-dialog h2 {
+  margin-top: 2px;
+}
+
+.confirm-dialog p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.confirm-dialog p strong {
+  color: var(--text);
+}
+
+.confirm-dialog-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+button.delete-confirm {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+button.delete-confirm:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger) 82%, #000);
+  background: color-mix(in srgb, var(--danger) 82%, #000);
 }
 
 .route {

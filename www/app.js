@@ -3,6 +3,9 @@ let tunnelID = "";
 let cloudflaredAvailable = false;
 let tunnelRunning = false;
 let actionsBusy = false;
+const pendingDNSDeletes = new Set();
+let hostnameSuggestions = [];
+let pendingRemoveRow = null;
 
 function routeRow(
   route = {
@@ -21,25 +24,73 @@ function routeRow(
       </label>
     </div>
     <label class="route-hostname"><span class="route-field-label">Hostname</span>
-      <input class="hostname" value="${escapeHtml(route.hostname || "")}" placeholder="app.example.com">
+      <select class="hostname" aria-label="Public hostname"></select>
     </label>
     <button class="remove" type="button" aria-label="Remove public hostname"><span aria-hidden="true">×</span> Remove</button>`;
-  row.querySelector(".remove").onclick = () => row.remove();
+  fillHostnameSelect(row.querySelector(".hostname"), route.hostname || "");
+  row.querySelector(".remove").onclick = () => removeRoute(row);
   return row;
 }
 
-function escapeHtml(s) {
-  return String(s).replace(
-    /[&<>'"]/g,
-    (c) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "'": "&#39;",
-        '"': "&quot;",
-      })[c],
-  );
+function fillHostnameSelect(select, selectedValue = "") {
+  const selected = normalizedHostname(selectedValue);
+  const values = [...hostnameSuggestions];
+  if (selected && !values.includes(selected)) values.unshift(selected);
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = values.length
+    ? "Select a Zoraxy hostname…"
+    : "No Zoraxy hostnames available";
+  placeholder.disabled = values.length > 0;
+  placeholder.selected = !selected;
+
+  const options = values.map((hostname) => {
+    const option = document.createElement("option");
+    option.value = hostname;
+    option.textContent = hostname;
+    option.selected = hostname === selected;
+    return option;
+  });
+  select.replaceChildren(placeholder, ...options);
+}
+
+function normalizedHostname(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\.$/, "")
+    .toLowerCase();
+}
+
+function updatePendingDNSDeletes() {
+  const notice = $("pendingDNSDeletes");
+  const count = pendingDNSDeletes.size;
+  notice.hidden = count === 0;
+  notice.textContent = count
+    ? `${count} Cloudflare CNAME record${count === 1 ? " is" : "s are"} queued for deletion on the next Apply.`
+    : "";
+}
+
+function removeRoute(row) {
+  const hostname = normalizedHostname(row.querySelector(".hostname").value);
+  if (!hostname) {
+    row.remove();
+    return;
+  }
+
+  pendingRemoveRow = row;
+  $("removeDialogHostname").textContent = hostname;
+  $("removeHostnameDialog").showModal();
+}
+
+function finishRouteRemoval(deleteCNAME) {
+  if (!pendingRemoveRow) return;
+  const hostname = normalizedHostname(pendingRemoveRow.querySelector(".hostname").value);
+  if (deleteCNAME && hostname) pendingDNSDeletes.add(hostname);
+  pendingRemoveRow.remove();
+  pendingRemoveRow = null;
+  $("removeHostnameDialog").close();
+  updatePendingDNSDeletes();
 }
 
 function showSuccess(text) {
@@ -159,7 +210,22 @@ async function load() {
   $("noTLSVerify").checked = !!c.no_tls_verify;
   $("autoStart").checked = !!c.auto_start;
   $("routes").replaceChildren(...(c.routes?.length ? c.routes.map(routeRow) : [routeRow()]));
-  await refreshStatus();
+  pendingDNSDeletes.clear();
+  updatePendingDNSDeletes();
+  await Promise.all([refreshStatus(), loadHostnameSuggestions()]);
+}
+
+async function loadHostnameSuggestions() {
+  try {
+    const result = await api("./api/zoraxy/hostnames");
+    const hostnames = Array.isArray(result.hostnames) ? result.hostnames : [];
+    hostnameSuggestions = hostnames;
+    document
+      .querySelectorAll(".route .hostname")
+      .forEach((select) => fillHostnameSelect(select, select.value));
+  } catch {
+    hostnameSuggestions = [];
+  }
 }
 
 async function save() {
@@ -211,19 +277,40 @@ async function action(fn) {
 }
 
 $("addRoute").onclick = () => $("routes").append(routeRow());
+$("cancelRemoveHostname").onclick = () => {
+  pendingRemoveRow = null;
+  $("removeHostnameDialog").close();
+};
+$("keepCNAME").onclick = () => finishRouteRemoval(false);
+$("removeCNAME").onclick = () => finishRouteRemoval(true);
+$("removeHostnameDialog").addEventListener("cancel", () => {
+  pendingRemoveRow = null;
+});
 $("save").onclick = () => action(save);
 $("apply").onclick = () =>
   action(async () => {
     await save();
+    const configuredHostnames = new Set(
+      collect().routes.map((route) => normalizedHostname(route.hostname)),
+    );
+    const deleteDNS = [...pendingDNSDeletes].filter(
+      (hostname) => !configuredHostnames.has(hostname),
+    );
     const r = await api("./api/apply", {
       method: "POST",
-      body: "{}",
+      body: JSON.stringify({ delete_dns: deleteDNS }),
     });
+    pendingDNSDeletes.clear();
+    updatePendingDNSDeletes();
     tunnelID = r.tunnel_id || tunnelID;
     $("tunnelID").textContent = tunnelID;
     const count = Array.isArray(r.hostnames) ? r.hostnames.length : 0;
+    const deletedCount = Array.isArray(r.deleted_dns) ? r.deleted_dns.length : 0;
+    const deletionSummary = deletedCount
+      ? ` Removed ${deletedCount} CNAME record${deletedCount === 1 ? "" : "s"}.`
+      : "";
     showSuccess(
-      `Cloudflare configuration applied to ${count} public hostname${count === 1 ? "" : "s"}.`,
+      `Cloudflare configuration applied to ${count} public hostname${count === 1 ? "" : "s"}.${deletionSummary}`,
     );
   });
 $("tunnelToggle").onclick = () =>
