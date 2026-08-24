@@ -130,10 +130,10 @@ The plugin runs inside the Zoraxy container if Zoraxy is containerized. Therefor
 
 The API token is returned to the UI only as a `token_configured` boolean and is not included in status output. It is stored in `cloudflare-tunnel.json` with mode `0600`. Tunnel runtime tokens are fetched on start and passed to `cloudflared` using the `TUNNEL_TOKEN` environment variable rather than as a command-line argument.
 
-## Current limitations
+## Current limitation
 
-- One Cloudflare account, zone, and tunnel per plugin instance.
-- Hostnames are suggested from Zoraxy HTTP rules but are only added when selected by the user.
-- The plugin detects `cloudflared` but does not install or update it.
+One Cloudflare account, zone, and tunnel per plugin instance.
 
-This project is an independent community plugin and is not an official Cloudflare or Zoraxy product.
+## License
+
+MIT
