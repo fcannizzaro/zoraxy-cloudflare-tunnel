@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -58,7 +59,7 @@ jobs:
           do
             goos="${target%/*}"
             goarch="${target#*/}"
-            output="cloudflare-tunnel_${goos}_${goarch}"
+            output="zoraxy-cloudflare-tunnel_${goos}_${goarch}"
 
             if [ "$goos" = "windows" ]; then
               output="${output}.exe"
@@ -69,12 +70,12 @@ jobs:
             echo "Built $output"
           done
 
-          sha256sum cloudflare-tunnel_* > SHA256SUMS
+          sha256sum zoraxy-cloudflare-tunnel_* > SHA256SUMS
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            cloudflare-tunnel_*
+            zoraxy-cloudflare-tunnel_*
             SHA256SUMS
