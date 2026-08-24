@@ -1,7 +1,7 @@
 # Zoraxy Cloudflare Tunnel plugin
 
 <p align="center">
-  <img src="public/logo.svg" alt="Zoraxy Cloudflare Tunnel logo" width="160">
+  <img src="https://raw.githubusercontent.com/fcannizzaro/zoraxy-cloudflare-tunnel/refs/heads/main/icon.svg" alt="Zoraxy Cloudflare Tunnel logo" width="160">
 </p>
 
 A Zoraxy Utilities plugin that manages one remotely-managed Cloudflare Tunnel and maps public hostnames to Zoraxy.
