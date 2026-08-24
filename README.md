@@ -53,7 +53,7 @@ Create a scoped API token with:
 
 ## Screenshot
 
-<img width="1076" height="1049" alt="image" src="https://github.com/user-attachments/assets/6e8bdd52-7f2f-4723-9bca-39caeb9ffe8a" />
+<img width="1099" height="1142" alt="image" src="https://github.com/user-attachments/assets/0ab60cda-a3f6-4164-8dc0-d37828d9f17f" />
 
 ## Requirements
 
