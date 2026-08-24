@@ -8,7 +8,7 @@
   "type": 1,
   "version_major": 1,
   "version_minor": 0,
-  "version_patch": 5,
+  "version_patch": 6,
   "ui_path": "/",
   "permitted_api_endpoints": [
     {
