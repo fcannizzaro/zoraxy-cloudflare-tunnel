@@ -44,7 +44,7 @@ Browser ──▶ Cloudflare edge ──▶ Cloudflare Tunnel
 - Persistent configuration with file mode `0600`.
 - Embedded UI, with live files from `./www` when Zoraxy reports a development build.
 - Auto-start option: starts the tunnel when the plugin starts/restarts and immediately after **Apply to Cloudflare**.
-- Live `cloudflared` availability status with runtime controls disabled when it is missing.
+- Live `cloudflared` availability and installed version, with a notice when Cloudflare publishes a newer stable release. Tunnel start is disabled when the binary is missing.
 
 ## Cloudflare token permissions
 

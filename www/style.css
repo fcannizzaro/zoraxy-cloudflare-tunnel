@@ -675,6 +675,7 @@ button.delete-confirm:hover:not(:disabled) {
 
 .cloudflared-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 9px;
 
@@ -682,10 +683,16 @@ button.delete-confirm:hover:not(:disabled) {
 
   color: var(--text-muted);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .cloudflared-status code {
   color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.cloudflared-status a {
+  color: var(--primary);
 }
 
 .status-dot {

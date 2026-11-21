@@ -248,6 +248,18 @@ async function refreshStatus() {
     $("statusBadge").title = s.cloudflared_error || s.cloudflare_error || "";
     cloudflaredAvailable = !!s.cloudflared_available;
     $("cloudflaredResolved").textContent = s.cloudflared_resolved_path || "not found";
+    const version = s.cloudflared_version || {};
+    const updateAvailable = !!version.update_available;
+    $("cloudflaredVersion").hidden = !cloudflaredAvailable;
+    $("cloudflaredVersion").textContent = version.installed || "Version unavailable";
+    $("cloudflaredUpdateStatus").hidden = !version.installed || updateAvailable;
+    $("cloudflaredUpdateStatus").textContent = version.latest
+      ? "Up to date"
+      : "Update check unavailable";
+    $("cloudflaredUpdate").hidden = !updateAvailable;
+    $("cloudflaredUpdate").textContent = updateAvailable
+      ? `Update available · ${version.latest}`
+      : "";
     $("cloudflaredIndicator").classList.toggle("available", cloudflaredAvailable);
     $("cloudflaredAlert").hidden = cloudflaredAvailable;
     updateButtons();

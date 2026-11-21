@@ -36,6 +36,7 @@ var hostnameRE = regexp.MustCompile(`^(\*\.)?([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A
 type App struct {
 	store        *cfgpkg.Store
 	proc         *tunnelproc.Manager
+	versionCheck tunnelproc.VersionChecker
 	zoraxyPort   int
 	zoraxyAPIKey string
 }
@@ -455,6 +456,7 @@ func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
 		result["cloudflared_error"] = binaryErr.Error()
 	} else {
 		result["cloudflared_resolved_path"] = resolvedBinary
+		result["cloudflared_version"] = a.versionCheck.Check(r.Context(), resolvedBinary)
 	}
 	if cfg.TunnelID != "" && cfg.APIToken != "" && cfg.AccountID != "" {
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)

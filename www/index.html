@@ -57,7 +57,16 @@
         <div class="cloudflared-status" aria-live="polite">
           <span id="cloudflaredIndicator" class="status-dot"></span>
           <span>cloudflared</span>
+          <span id="cloudflaredVersion" hidden></span>
           <code id="cloudflaredResolved">checking…</code>
+          <span id="cloudflaredUpdateStatus" hidden></span>
+          <a
+            id="cloudflaredUpdate"
+            href="https://developers.cloudflare.com/tunnel/guides/update-cloudflared/"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+          ></a>
         </div>
         <div id="cloudflaredAlert" class="dependency-alert" role="alert" hidden>
           <div>
