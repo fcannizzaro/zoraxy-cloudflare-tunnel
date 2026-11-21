@@ -111,6 +111,15 @@ If Zoraxy reports `DevelopmentBuild` to the plugin, the plugin serves `./www` fr
 7. Either click **Start tunnel**, or enable **Auto-start tunnel when Zoraxy/plugin starts**. With auto-start enabled, **Apply to Cloudflare** also starts the tunnel immediately.
 8. Make sure Zoraxy already has an HTTP proxy rule for each hostname.
 
+## Show visitor IPs in Zoraxy
+
+When `cloudflared` connects over loopback, Zoraxy sees `127.0.0.1` as the connection address. Cloudflare sends the visitor's IP in the `CF-Connecting-IP` header. To use it for Request Origins and GeoIP checks:
+
+1. In Zoraxy's **Trusted Proxy Settings**, add `127.0.0.1` if you trust the local processes that can connect to the Zoraxy listener.
+2. In **Access Control**, enable the trusted proxy option on an access rule and assign that rule to each hostname that should use it.
+
+Send a new request through the public hostname and check the `client:` field in Zoraxy's log under **Others → Utilities → Logger → Open Log Viewer**.
+
 ## TLS notes
 
 With the default:
